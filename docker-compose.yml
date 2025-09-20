@@ -1,0 +1,23 @@
+services:
+  mongo:
+    image: mongo:6
+    container_name: mongo-local
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: local
+    volumes:
+      - mongo-data:/data/db
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq-local
+    ports:
+      - "5672:5672"     # AMQP port for Go
+      - "15672:15672"   # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+volumes:
+  mongo-data:
