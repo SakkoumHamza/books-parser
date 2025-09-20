@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/joho/godotenv"
@@ -96,4 +99,77 @@ func main() {
 	}
 	defer ch.Close()
 
+	msgs, err := ch.Consume(
+		"books_queue", // queue name
+		"",            // consumer tag
+		false,         // auto-ack (false = manual ack)
+		false,         // exclusive
+		false,         // no-local
+		false,         // no-wait
+		nil,           // args
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	forever := make(chan bool)
+
+	go func() {
+		for d := range msgs {
+			rawBook := Book{}
+			err := json.Unmarshal(d.Body, &rawBook)
+			if err != nil {
+				log.Println("Failed to parse message:", err)
+				d.Nack(false, false) // reject message, don’t requeue
+				continue
+			}
+			// Search Goodreads for the book title
+			query := url.QueryEscape(rawBook.Title)
+			searchURL := fmt.Sprintf("https://www.goodreads.com/search?q=%s", query)
+			resp, err := http.Get(searchURL)
+			if err != nil {
+				log.Println("Search HTTP error:", err)
+				d.Nack(false, true)
+				continue
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != 200 {
+				log.Printf("search status code error: %d %s", resp.StatusCode, resp.Status)
+				d.Nack(false, true)
+				continue
+			}
+			doc, err := goquery.NewDocumentFromReader(resp.Body)
+			if err != nil {
+				log.Println("Search page parse error:", err)
+				d.Nack(false, true)
+				continue
+			}
+			href, exists := doc.Find("a.bookTitle").First().Attr("href")
+			if !exists {
+				log.Println("No book found for", rawBook.Title)
+				d.Nack(false, false)
+				continue
+			}
+			firstBookUrl := "https://www.goodreads.com" + href
+			// Fetch and parse the book page
+			book, err := ParseBook(firstBookUrl)
+			if err != nil {
+				log.Println("Parse error:", err)
+				d.Nack(false, false)
+				continue
+			}
+			book.ID = rawBook.ID
+			_, err = collection.InsertOne(context.Background(), book)
+			if err != nil {
+				log.Println("Mongo insert error:", err)
+				d.Nack(false, true)
+				continue
+			}
+			log.Println("Inserted:", book.Title)
+			d.Ack(false)
+			time.Sleep(6 * time.Second)
+		}
+	}()
+	log.Println("Waiting for messages on books_queue...")
+	<-forever
 }
