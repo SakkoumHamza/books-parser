@@ -17,9 +17,9 @@ const HTML = `
 	<div class="ContributorLinksList">
 		<span class="ContributorLink__name" data-testid="name">Harper Lee</span>
 	</div>
-	<p data-testid="publicationInfo">First published July 11, 1960</div>
+	<p data-testid="publicationInfo">First published July 11, 1960</p>
 	<div class="RatingStatistics__rating">4.26</div>
-	<div class="DetailsLayoutRightParagraph__widthConstrained">
+	<div data-testid='description'>
 		<span class="Formatted">One of the best-loved stories of all time, To Kill a Mockingbird has been translated into more than forty languages, sold more than forty million copies worldwide, served as the basis for an enormously popular motion picture, and was voted one of the best novels of the twentieth century by librarians across the country. A gripping, heart-wrenching, and wholly remarkable coming-of-age tale in a South poisoned by virulent prejudice, it views a world of great beauty and savage iniquities through the eyes of a young girl, as her father — a crusading local lawyer — risks everything to defend a black man unjustly accused of a terrible crime.</span>
 	</div>
 </div>
@@ -52,10 +52,10 @@ func TestParseBook(t *testing.T) {
 	}
 
 	if expectedBook.PublishDate != currentBook.PublishDate {
-		t.Errorf("returned wrong release date: got %v ❌ want %v", currentBook.PublishDate, expectedBook.PublishDate)
+		t.Errorf("returned wrong publish date: got %v ❌ want %v", currentBook.PublishDate, expectedBook.PublishDate)
 		t.Error(err)
 	} else {
-		t.Logf("returned correct release date: ✅ ")
+		t.Logf("returned correct publish date: ✅ ")
 	}
 
 	if expectedBook.Description != currentBook.Description {

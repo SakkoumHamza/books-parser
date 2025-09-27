@@ -30,22 +30,21 @@ type Book struct {
 	Description string `json:"description"`
 }
 
-// Function for extracting the rating and year from a raw string
+// ExtractYear extracts the year from a raw string.
 func ExtractYear(raw string) string {
 	raw = strings.TrimSpace(raw)
 	// Regex for year (last 4 digits)
 	yearRegex := regexp.MustCompile(`\d{4}`)
 	year := yearRegex.FindString(raw)
-
 	return year
 }
 
+// ParseBook fetches the book page from the given URL and parses its details into a Book struct.
 func ParseBook(bookURL string) (Book, error) {
 	res, err := http.Get(bookURL)
 	if err != nil {
 		return Book{}, err
 	}
-	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
 		return Book{}, fmt.Errorf("status code error: %d %s", res.StatusCode, res.Status)
@@ -59,7 +58,7 @@ func ParseBook(bookURL string) (Book, error) {
 	book := Book{}
 	book.Title = strings.TrimSpace(doc.Find(".Text.Text__title1").Text())
 	book.Rating = strings.TrimSpace(doc.Find(".RatingStatistics__rating").Text())
-	rawText := strings.TrimSpace(doc.Find(".publicationInfo").Text())
+	rawText := strings.TrimSpace(doc.Find("p[data-testid='publicationInfo']").Text())
 	book.PublishDate = ExtractYear(rawText)
 	book.Description = strings.TrimSpace(doc.Find("div[data-testid='description'] span.Formatted").Text())
 	book.Author = strings.TrimSpace(doc.Find(".ContributorLink__name").Text())
@@ -117,12 +116,12 @@ func main() {
 	go func() {
 		for d := range msgs {
 			rawBook := Book{}
-			err := json.Unmarshal(d.Body, &rawBook)
-			if err != nil {
+			if err := json.Unmarshal(d.Body, &rawBook); err != nil {
 				log.Println("Failed to parse message:", err)
-				d.Nack(false, false) // reject message, don’t requeue
+				d.Nack(false, false)
 				continue
 			}
+
 			// Search Goodreads for the book title
 			query := url.QueryEscape(rawBook.Title)
 			searchURL := fmt.Sprintf("https://www.goodreads.com/search?q=%s", query)
@@ -132,39 +131,45 @@ func main() {
 				d.Nack(false, true)
 				continue
 			}
-			defer resp.Body.Close()
+
 			if resp.StatusCode != 200 {
-				log.Printf("search status code error: %d %s", resp.StatusCode, resp.Status)
+				log.Printf("Search status code error: %d %s", resp.StatusCode, resp.Status)
+				resp.Body.Close()
 				d.Nack(false, true)
 				continue
 			}
+
 			doc, err := goquery.NewDocumentFromReader(resp.Body)
+			resp.Body.Close() // close after parsing
+
 			if err != nil {
 				log.Println("Search page parse error:", err)
 				d.Nack(false, true)
 				continue
 			}
+
 			href, exists := doc.Find("a.bookTitle").First().Attr("href")
 			if !exists {
 				log.Println("No book found for", rawBook.Title)
 				d.Nack(false, false)
 				continue
 			}
-			firstBookUrl := "https://www.goodreads.com" + href
-			// Fetch and parse the book page
-			book, err := ParseBook(firstBookUrl)
+			// The first book URL
+			firstBookURL := "https://www.goodreads.com" + href
+			book, err := ParseBook(firstBookURL)
 			if err != nil {
 				log.Println("Parse error:", err)
 				d.Nack(false, false)
 				continue
 			}
+
 			book.ID = rawBook.ID
-			_, err = collection.InsertOne(context.Background(), book)
-			if err != nil {
+			if _, err := collection.InsertOne(context.Background(), book); err != nil {
 				log.Println("Mongo insert error:", err)
 				d.Nack(false, true)
 				continue
 			}
+
 			log.Println("Inserted:", book.Title)
 			d.Ack(false)
 			time.Sleep(6 * time.Second)
