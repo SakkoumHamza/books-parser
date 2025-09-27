@@ -17,7 +17,7 @@ node('workers'){
             },
             'Unit Tests': {
                 imageTest.inside {
-                    sh 'go test ./...'
+                    sh 'go clean -testcache && go test ./...'
                 }
             },
             'Security Tests': {
