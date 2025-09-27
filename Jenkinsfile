@@ -16,8 +16,8 @@ node('workers'){
                 }
             },
             'Unit Tests': {
-                imageTest.inside {
-                    sh 'go clean -testcache && GOCACHE=off go test ./...'
+                imageTest.inside('--user root') { // To avoid permission issues when writing cache files
+                    sh 'go test ./...'
                 }
             },
             'Security Tests': {
