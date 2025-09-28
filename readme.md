@@ -19,16 +19,22 @@ This microservice is designed for scalable, automated book data ingestion and pr
 ## 👨🏻‍💻 Project Structure
 
 ```text
-.
-├── cmd/                  # Main service entry points
-├── internal/             # Internal packages
-├── scripts/              # Scripts for linting and security tests
-├── docker-compose.yml    # Docker Compose for RabbitMQ & MongoDB
-├── Dockerfile
-├── Jenkinsfile
-├── README.md
-├── screenshots/
-└── reports/              # CI/CD reports
+BOOKS-PARSER/
+├── screenshots/           # Images for README or documentation
+├── .gitignore             # Git ignore rules
+├── docker-compose.yml     # Compose setup for RabbitMQ & MongoDB
+├── Dockerfile             # Main Dockerfile for the service
+├── Dockerfile.test        # Dockerfile for testing
+├── env_example.txt        # Sample environment variables
+├── go.mod                 # Go module file
+├── go.sum                 # Go dependency checksums
+├── Gopkg.lock             # For dep (if using) — lock file
+├── Gopkg.toml             # For dep — dependency config
+├── Jenkinsfile            # CI/CD pipeline
+├── main_test.go           # Unit tests for main.go
+├── main.go                # Microservice entry point
+└── readme.md              # Project documentation
+
 ```
 
 ---
