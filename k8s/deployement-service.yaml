@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: books-parser
+  namespace: books-system
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: books-parser
+  template:
+    metadata:
+      labels:
+        app: books-parser
+    spec:
+      containers:
+      - name: books-parser
+        image: sakkoumhamza/books-parser:develop
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 4000
+        env:
+        - name: LOADER_URL
+          value: "http://books-loader:80"   # internal service name
+        - name: MONGO_URL
+          value: "mongodb://mongo:27017/books"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: books-parser
+  namespace: books-system
+spec:
+  selector:
+    app: books-parser
+  ports:
+    - port: 80
+      targetPort: 4000
+  type: ClusterIP
